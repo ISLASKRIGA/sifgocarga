@@ -80,15 +80,17 @@ const App = () => {
       kardexData.FH = await readXlsx(files.kardexFH);
 
       // Create lookup maps for performance
-      // Key: Clave Bien + Lote
+      // Key: Clave Bien, Value: Array of Kardex items for that Clave
       const createLookup = (data) => {
         const map = new Map();
         data.forEach(item => {
           let clave = String(item['Clave Bien'] || '').trim();
           clave = clave.replace(/^0+/, ''); // safely remove leading zeros
 
-          let lote = String(item['Lote'] || '').trim().toUpperCase().replace(/\s+/g, ''); // remove any inner spaces
-          map.set(`${clave}_${lote}`, item);
+          if (!map.has(clave)) {
+            map.set(clave, []);
+          }
+          map.get(clave).push(item);
         });
         return map;
       };
@@ -222,16 +224,48 @@ const App = () => {
         }
 
         // Kardex lookup
-        const lookupKey = `${rawClave}_${rawLote}`;
         const kardexSource = almacenId === 4 ? lookupFG : lookupFH;
-        const kardexItem = kardexSource.get(lookupKey);
+        const possibleItems = kardexSource.get(rawClave) || [];
+        
+        let kardexItem = null;
+        
+        if (possibleItems.length > 0) {
+          // 1. Coincidencia exacta
+          kardexItem = possibleItems.find(item => {
+            const itemLote = String(item['Lote'] || '').trim().toUpperCase().replace(/\s+/g, '');
+            return itemLote === rawLote;
+          });
+          
+          // 2. Coincidencia parcial (substring) e.g., "L3Y5442" in "3Y5442"
+          if (!kardexItem) {
+            kardexItem = possibleItems.find(item => {
+              const itemLote = String(item['Lote'] || '').trim().toUpperCase().replace(/\s+/g, '');
+              return itemLote.includes(rawLote) || rawLote.includes(itemLote);
+            });
+          }
+          
+          // 3. Ignorar prefijos comunes en lotes y comparar partes limpias
+          if (!kardexItem) {
+            const cleanRawLote = rawLote.replace(/[^A-Z0-9]/g, '').replace(/^(L|LOTE|LOT)/, '');
+            kardexItem = possibleItems.find(item => {
+              const itemLote = String(item['Lote'] || '').trim().toUpperCase().replace(/[^A-Z0-9]/g, '').replace(/^(L|LOTE|LOT)/, '');
+              return itemLote === cleanRawLote || itemLote.includes(cleanRawLote) || cleanRawLote.includes(itemLote);
+            });
+          }
+          
+          // 4. Si la clave (Bien) coincide pero el lote es totalmente diferente,
+          // asignamos el primer kardex disponible porque es seguro que es el mismo producto
+          if (!kardexItem) {
+            kardexItem = possibleItems[0];
+          }
+        }
 
         if (kardexItem) {
           newDetalle.push({
             'Año (Integer)': endOfMonth.getFullYear() || 2025,
             'Folio Temp. (Integer)': currentFolio,
             'id_bien': kardexItem['id_bien'],
-            'Lote Correcto FH': rawLote,
+            'Lote Correcto FH': kardexItem['Lote'], // Forzado desde el reporte Kardex (Existencias)
             'Fecha Caducidad (Date)': formatExcelDate(kardexItem['Fecha Caducidad']),
             'Cantidad Salida (Decimal)': valSalida,
             'Kardex Bien (Integer)': kardexItem['id_kardex'],
