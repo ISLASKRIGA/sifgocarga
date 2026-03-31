@@ -204,10 +204,11 @@ const App = () => {
         const rawVale = row['Vale INPer'] || row['Vale Inper'] || row['Vale'] || row['Folio Vale'] || row['Folio Vale INPer'];
         let currentFolio;
         if (rawVale) {
-          const valeStr = String(rawVale).replace(/\D/g, ''); // Extract purely numeric portion
-          currentFolio = valeStr ? parseInt(valeStr, 10) : parseInt(`${tipoMovId}${subAlmacenId}${almacenId}`, 10);
+          // Extraer porción numérica pero mantener como string para evitar notación científica prematura
+          const valeStr = String(rawVale).replace(/\D/g, ''); 
+          currentFolio = valeStr || `${tipoMovId}${subAlmacenId}${almacenId}`;
         } else {
-          currentFolio = parseInt(`${tipoMovId}${subAlmacenId}${almacenId}`, 10);
+          currentFolio = `${tipoMovId}${subAlmacenId}${almacenId}`;
         }
 
         // Grouping key for Encabezado
@@ -217,7 +218,7 @@ const App = () => {
           folioMap.set(groupKey, currentFolio);
           
           newEncabezado.push({
-            'Folio Temp (Integer)': currentFolio,
+            'Folio Temp (Integer)': currentFolio.length > 10 ? currentFolio : parseInt(currentFolio, 10),
             'Año (Integer)': dateObj.getFullYear() || new Date().getFullYear(),
             'Tipo Movimiento (Integer)': tipoMovId,
             'Almacén Salida (Integer)': almacenId,
@@ -298,6 +299,31 @@ const App = () => {
       const wb = XLSX.utils.book_new();
       const wsEnc = XLSX.utils.json_to_sheet(newEncabezado);
       const wsDet = XLSX.utils.json_to_sheet(newDetalle);
+      
+      // Fix scientific notation for Folio columns by setting cell type to number and format
+      const fixFolioFormat = (ws, colName) => {
+        const range = XLSX.utils.decode_range(ws['!ref']);
+        for (let R = range.s.r; R <= range.e.r; ++R) {
+          for (let C = range.s.c; C <= range.e.c; ++C) {
+            const cellAddress = XLSX.utils.encode_cell({ r: R, c: C });
+            const cell = ws[cellAddress];
+            if (R === 0 && cell && cell.v === colName) {
+              // Header match, now process column
+              for (let i = R + 1; i <= range.e.r; ++i) {
+                const targetAddr = XLSX.utils.encode_cell({ r: i, c: C });
+                if (ws[targetAddr]) {
+                  ws[targetAddr].t = 'n'; // numeric
+                  ws[targetAddr].z = '0'; // no decimals, integer format
+                }
+              }
+              break;
+            }
+          }
+        }
+      };
+
+      fixFolioFormat(wsEnc, 'Folio Temp (Integer)');
+      fixFolioFormat(wsDet, 'Folio Temp. (Integer)');
       
       XLSX.utils.book_append_sheet(wb, wsEnc, 'Encabezado');
       XLSX.utils.book_append_sheet(wb, wsDet, 'Detalle');
