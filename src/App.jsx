@@ -164,6 +164,11 @@ const App = () => {
         let rawClave = String(row['Clave'] || row['Clave INPer'] || '').trim();
         rawClave = rawClave.replace(/^0+/, ''); // safely remove leading zeros
         
+        // Filtrar sólo Medicamentos (aquellos cuya clave empieza con 1)
+        if (!rawClave.startsWith('1')) {
+          return;
+        }
+
         let rawLote = String(row['Lote a sacar'] || '').trim().toUpperCase().replace(/\s+/g, '');
         const rawAlmacen = String(row['Almacen'] || '').trim();
         const rawTipoSalida = String(row['Tipo de Salida'] || '').trim();
