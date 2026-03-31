@@ -169,7 +169,7 @@ const App = () => {
         const rawTipoSalida = String(row['Tipo de Salida'] || '').trim();
         const valSalida = parseFloat(determineSalidaField(row));
         
-        let rawFecha = row['Fecha de Elaboración'] || row['Fecha de Elaboracion'] || row['Fecha de Autorización'] || row['Fecha y hora de solicitud'];
+        let rawFecha = row['Fecha de Surtimiento'] || row['Fecha Surtimiento'] || row['Fecha de Elaboración'] || row['Fecha de Elaboracion'] || row['Fecha de Autorización'] || row['Fecha y hora de solicitud'];
         // Handle JS Date or Serial Date
         let dateObj;
         if (typeof rawFecha === 'number') {
@@ -181,9 +181,9 @@ const App = () => {
           dateObj = new Date(); // Fallback to current date
         }
         
-        const endOfMonth = new Date(dateObj.getFullYear(), dateObj.getMonth() + 1, 0);
-        endOfMonth.setHours(0, 0, 0, 0);
-        const fechaStr = endOfMonth.toISOString().split('T')[0];
+        // Quitar la parte de tiempo (hours) a 0 para el match
+        dateObj.setHours(0, 0, 0, 0);
+        const fechaStr = dateObj.toISOString().split('T')[0];
         
         let almacenId = 5; // Default to FH
         if (rawAlmacen.toLowerCase().includes('gratui')) {
@@ -200,9 +200,15 @@ const App = () => {
         // Subalmacen determination
         const subAlmacenId = SUBALMACEN_MAPPING[rawClave[0]] || 16;
 
-        // Folio generation: Tipo Movimiento + SubAlmacen + Almacen Salida
-        const currentFolioStr = `${tipoMovId}${subAlmacenId}${almacenId}`;
-        const currentFolio = parseInt(currentFolioStr, 10);
+        // Folio generation: Tomar Valor Vale INPer
+        const rawVale = row['Vale INPer'] || row['Vale Inper'] || row['Vale'] || row['Folio Vale'] || row['Folio Vale INPer'];
+        let currentFolio;
+        if (rawVale) {
+          const valeStr = String(rawVale).replace(/\D/g, ''); // Extract purely numeric portion
+          currentFolio = valeStr ? parseInt(valeStr, 10) : parseInt(`${tipoMovId}${subAlmacenId}${almacenId}`, 10);
+        } else {
+          currentFolio = parseInt(`${tipoMovId}${subAlmacenId}${almacenId}`, 10);
+        }
 
         // Grouping key for Encabezado
         const groupKey = `${currentFolio}_${fechaStr}`;
@@ -212,11 +218,11 @@ const App = () => {
           
           newEncabezado.push({
             'Folio Temp (Integer)': currentFolio,
-            'Año (Integer)': endOfMonth.getFullYear() || 2025,
+            'Año (Integer)': dateObj.getFullYear() || new Date().getFullYear(),
             'Tipo Movimiento (Integer)': tipoMovId,
             'Almacén Salida (Integer)': almacenId,
             'Destino (Integer)': 8, // Predefined as 8 based on example
-            'Fecha Movimiento (Date)': formatExcelDate(endOfMonth),
+            'Fecha Movimiento (Date)': formatExcelDate(dateObj),
             'Usuario Elabora (Integer Usuario Activo)': 316,
             'Empleado (Integer)': 996,
             'Sub Almacén (Integer)': subAlmacenId,
@@ -262,7 +268,7 @@ const App = () => {
 
         if (kardexItem) {
           newDetalle.push({
-            'Año (Integer)': endOfMonth.getFullYear() || 2025,
+            'Año (Integer)': dateObj.getFullYear() || new Date().getFullYear(),
             'Folio Temp. (Integer)': currentFolio,
             'id_bien': kardexItem['id_bien'],
             'Lote Correcto FH': kardexItem['Lote'], // Forzado desde el reporte Kardex (Existencias)
@@ -276,7 +282,7 @@ const App = () => {
           // Optimization: could search only by Clave as fallback if Lote doesn't match
           console.warn(`No se encontró kardex para clave ${rawClave} lote ${rawLote}`);
           newDetalle.push({
-            'Año (Integer)': endOfMonth.getFullYear() || 2025,
+            'Año (Integer)': dateObj.getFullYear() || new Date().getFullYear(),
             'Folio Temp. (Integer)': currentFolio,
             'id_bien': row['Clave de Cuadro Básico'] || 0,
             'Lote Correcto FH': rawLote,
