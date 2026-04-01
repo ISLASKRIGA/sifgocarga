@@ -125,8 +125,8 @@ const App = () => {
       }
 
       // Helper to format Excel serial numbers or Strings into DD/MM/YYYY
-      const parseExcelDateToJS = (excelDate) => {
-        if (excelDate === null || excelDate === undefined || excelDate === '') return '';
+      const formatExcelDate = (excelDate) => {
+        if (!excelDate) return '';
         
         let dateObj;
         if (typeof excelDate === 'number') {
@@ -134,9 +134,8 @@ const App = () => {
           dateObj = new Date(Math.round((excelDate - 25569) * 86400 * 1000));
           // Offset timezone to avoid getting the day before
           dateObj.setMinutes(dateObj.getMinutes() + dateObj.getTimezoneOffset());
-          return dateObj;
         } else if (excelDate instanceof Date) {
-          return excelDate;
+          dateObj = excelDate;
         } else {
           // If it's a string, e.g. "2026-06-30 00:00:00", extract the date part
           const str = String(excelDate).trim();
@@ -144,19 +143,16 @@ const App = () => {
           if (datePart.includes('-')) {
              const parts = datePart.split('-');
              if (parts.length === 3 && parts[0].length === 4) { // YYYY-MM-DD
-                 return new Date(parseInt(parts[0], 10), parseInt(parts[1], 10) - 1, parseInt(parts[2], 10));
+                 return `${parts[2]}/${parts[1]}/${parts[0]}`;
              }
           }
-          if (datePart.includes('/')) {
-             const parts = datePart.split('/');
-             if (parts.length === 3 && parts[2].length === 4) { // DD/MM/YYYY
-                 return new Date(parseInt(parts[2], 10), parseInt(parts[1], 10) - 1, parseInt(parts[0], 10));
-             }
-          }
-          const d = new Date(str);
-          if (!isNaN(d.getTime())) return d;
-          return str; // fallback string
+          return datePart;
         }
+
+        const d = String(dateObj.getDate()).padStart(2, '0');
+        const m = String(dateObj.getMonth() + 1).padStart(2, '0');
+        const y = dateObj.getFullYear();
+        return `${d}/${m}/${y}`;
       };
 
       // 3. Transformation Logic
@@ -178,7 +174,14 @@ const App = () => {
         const rawTipoSalida = String(row['Tipo de Salida'] || '').trim();
         const valSalida = parseFloat(determineSalidaField(row));
         
-        let rawFecha = row['Fecha y hora de surtimiento'] || row['Fecha de Surtimiento'] || row['Fecha Surtimiento'] || row['Fecha de Elaboración'] || row['Fecha de Elaboracion'] || row['Fecha de Autorización'] || row['Fecha y hora de solicitud'];
+        const getFechaKey = (r) => {
+          const keys = Object.keys(r);
+          let key = keys.find(k => k.toLowerCase().includes('surtimiento'));
+          if (key) return r[key];
+          key = keys.find(k => k.toLowerCase().match(/elaboraci|autorizaci|solicitud/));
+          return key ? r[key] : null;
+        };
+        let rawFecha = getFechaKey(row);
         // Handle JS Date or Serial Date
         let dateObj;
         if (typeof rawFecha === 'number') {
@@ -232,7 +235,7 @@ const App = () => {
             'Tipo Movimiento (Integer)': tipoMovId,
             'Almacén Salida (Integer)': almacenId,
             'Destino (Integer)': 8, // Predefined as 8 based on example
-            'Fecha Movimiento (Date)': dateObj, // NATIVE DATE
+            'Fecha Movimiento (Date)': formatExcelDate(dateObj),
             'Usuario Elabora (Integer Usuario Activo)': 316,
             'Empleado (Integer)': 996,
             'Sub Almacén (Integer)': subAlmacenId,
@@ -282,7 +285,7 @@ const App = () => {
             'Folio Temp. (Integer)': currentFolio,
             'id_bien': kardexItem['id_bien'],
             'Lote Correcto FH': kardexItem['Lote'], // Forzado desde el reporte Kardex (Existencias)
-            'Fecha Caducidad (Date)': parseExcelDateToJS(kardexItem['Fecha Caducidad']),
+            'Fecha Caducidad (Date)': formatExcelDate(kardexItem['Fecha Caducidad']),
             'Cantidad Salida (Decimal)': valSalida,
             'Kardex Bien (Integer)': kardexItem['id_kardex'],
             'Unidad Medida (Integer)': kardexItem['id_unidadmedida'],
@@ -296,7 +299,7 @@ const App = () => {
             'Folio Temp. (Integer)': currentFolio,
             'id_bien': row['Clave de Cuadro Básico'] || 0,
             'Lote Correcto FH': rawLote,
-            'Fecha Caducidad (Date)': parseExcelDateToJS(row['Caducidad'] || row['Caducidad ']),
+            'Fecha Caducidad (Date)': formatExcelDate(row['Caducidad'] || row['Caducidad ']),
             'Cantidad Salida (Decimal)': valSalida,
             'Kardex Bien (Integer)': 0,
             'Unidad Medida (Integer)': 271, // Default from example
@@ -306,8 +309,8 @@ const App = () => {
 
       // 4. Create Workbook
       const wb = XLSX.utils.book_new();
-      const wsEnc = XLSX.utils.json_to_sheet(newEncabezado, { cellDates: true, dateNF: 'dd/mm/yyyy' });
-      const wsDet = XLSX.utils.json_to_sheet(newDetalle, { cellDates: true, dateNF: 'dd/mm/yyyy' });
+      const wsEnc = XLSX.utils.json_to_sheet(newEncabezado);
+      const wsDet = XLSX.utils.json_to_sheet(newDetalle);
       
       // Fix scientific notation for Folio columns by setting cell type to number and format
       const fixFolioFormat = (ws, colName) => {
