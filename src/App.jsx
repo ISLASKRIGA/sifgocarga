@@ -84,9 +84,7 @@ const App = () => {
       const createLookup = (data) => {
         const map = new Map();
         data.forEach(item => {
-          const itemKeys = Object.keys(item);
-          const claveKey = itemKeys.find(k => k.toLowerCase().replace(/\s+/g, '') === 'clavebien' || k.toLowerCase() === 'clave') || 'Clave Bien';
-          let clave = String(item[claveKey] || '').trim();
+          let clave = String(item['Clave Bien'] || '').trim();
           clave = clave.replace(/^0+/, ''); // safely remove leading zeros
 
           if (!map.has(clave)) {
@@ -204,6 +202,15 @@ const App = () => {
           almacenId = 4; // Farmacia Gratuita o Gratuidad
         }
         
+        // Cruzar con el otro almacén si no existe en el actual
+        const primaryKardex = almacenId === 4 ? lookupFG : lookupFH;
+        if (!primaryKardex.has(rawClave) || primaryKardex.get(rawClave).length === 0) {
+          const secondaryKardex = almacenId === 4 ? lookupFH : lookupFG;
+          if (secondaryKardex.has(rawClave) && secondaryKardex.get(rawClave).length > 0) {
+            almacenId = almacenId === 4 ? 5 : 4; // Swap a donde sí hay existencias
+          }
+        }
+        
         // Find movement type ID
         const mvType = MOVEMENT_TYPES.find(t => 
           rawTipoSalida.toLowerCase().includes(t.label.toLowerCase()) || 
@@ -226,7 +233,7 @@ const App = () => {
         }
 
         // Grouping key for Encabezado
-        const groupKey = `${currentFolio}_${fechaStr}`;
+        const groupKey = `${currentFolio}_${fechaStr}_${almacenId}`;
         
         if (!folioMap.has(groupKey)) {
           folioMap.set(groupKey, currentFolio);
@@ -282,20 +289,15 @@ const App = () => {
         }
 
         if (kardexItem) {
-          const kKeys = Object.keys(kardexItem);
-          const kIdBien = kKeys.find(k => k.toLowerCase().replace(/\s|_/g, '') === 'idbien') || 'id_bien';
-          const kIdKardex = kKeys.find(k => k.toLowerCase().replace(/\s|_/g, '') === 'idkardex' || k.toLowerCase() === 'kardex') || 'id_kardex';
-          const kUm = kKeys.find(k => k.toLowerCase().replace(/\s|_/g, '').includes('unidadmedida')) || 'id_unidadmedida';
-
           newDetalle.push({
             'Año (Integer)': dateObj.getFullYear() || new Date().getFullYear(),
             'Folio Temp. (Integer)': currentFolio,
-            'id_bien': kardexItem[kIdBien] || 0,
+            'id_bien': kardexItem['id_bien'],
             'Lote Correcto FH': kardexItem['Lote'], // Forzado desde el reporte Kardex (Existencias)
             'Fecha Caducidad (Date)': formatExcelDate(kardexItem['Fecha Caducidad']),
             'Cantidad Salida (Decimal)': valSalida,
-            'Kardex Bien (Integer)': kardexItem[kIdKardex] || 0,
-            'Unidad Medida (Integer)': kardexItem[kUm] || 271,
+            'Kardex Bien (Integer)': kardexItem['id_kardex'],
+            'Unidad Medida (Integer)': kardexItem['id_unidadmedida'],
           });
         } else {
           // If not found in kardex, we still include but some fields might be missing
