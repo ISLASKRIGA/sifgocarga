@@ -124,35 +124,36 @@ const App = () => {
         throw new Error('No se encontraron registros de salida en el archivo concentrado. Verifica que haya una columna "Salida" o "Cantidad".');
       }
 
-      // Helper to format Excel serial numbers or Strings into DD/MM/YYYY
-      const formatExcelDate = (excelDate) => {
-        if (!excelDate) return '';
-        
-        let dateObj;
-        if (typeof excelDate === 'number') {
-          // Convert Excel serial date to JS Date
-          dateObj = new Date(Math.round((excelDate - 25569) * 86400 * 1000));
-          // Offset timezone to avoid getting the day before
-          dateObj.setMinutes(dateObj.getMinutes() + dateObj.getTimezoneOffset());
-        } else if (excelDate instanceof Date) {
-          dateObj = excelDate;
+      // Helper to convert any date representation to a JS Date at UTC midnight.
+      // Returning a Date object (not a string) ensures xlsx writes a numeric date cell,
+      // so SIFGO reads the unambiguous serial number instead of parsing a string.
+      const toDate = (val) => {
+        if (!val) return null;
+        let d;
+        if (val instanceof Date) {
+          d = val;
+        } else if (typeof val === 'number') {
+          d = new Date(Math.round((val - 25569) * 86400 * 1000));
+          d.setMinutes(d.getMinutes() + d.getTimezoneOffset());
         } else {
-          // If it's a string, e.g. "2026-06-30 00:00:00", extract the date part
-          const str = String(excelDate).trim();
+          const str = String(val).trim();
           const datePart = str.includes(' ') ? str.split(' ')[0] : str;
           if (datePart.includes('-')) {
-             const parts = datePart.split('-');
-             if (parts.length === 3 && parts[0].length === 4) { // YYYY-MM-DD
-                 return `${parts[2]}/${parts[1]}/${parts[0]}`;
-             }
+            const parts = datePart.split('-');
+            if (parts.length === 3 && parts[0].length === 4) { // YYYY-MM-DD
+              return new Date(Date.UTC(+parts[0], +parts[1] - 1, +parts[2]));
+            }
           }
-          return datePart;
+          if (datePart.includes('/')) {
+            const parts = datePart.split('/');
+            if (parts.length === 3 && parts[2].length === 4) { // DD/MM/YYYY
+              return new Date(Date.UTC(+parts[2], +parts[1] - 1, +parts[0]));
+            }
+          }
+          d = new Date(val);
         }
-
-        const d = String(dateObj.getDate()).padStart(2, '0');
-        const m = String(dateObj.getMonth() + 1).padStart(2, '0');
-        const y = dateObj.getFullYear();
-        return `${d}/${m}/${y}`;
+        // Normalize to UTC midnight using local date components to avoid day-shift across timezones
+        return new Date(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate()));
       };
 
       // 3. Transformation Logic
@@ -228,7 +229,7 @@ const App = () => {
             'Tipo Movimiento (Integer)': tipoMovId,
             'Almacén Salida (Integer)': almacenId,
             'Destino (Integer)': 8, // Predefined as 8 based on example
-            'Fecha Movimiento (Date)': formatExcelDate(dateObj),
+            'Fecha Movimiento (Date)': toDate(dateObj),
             'Usuario Elabora (Integer Usuario Activo)': 316,
             'Empleado (Integer)': 996,
             'Sub Almacén (Integer)': subAlmacenId,
@@ -278,7 +279,7 @@ const App = () => {
             'Folio Temp. (Integer)': currentFolio,
             'id_bien': kardexItem['id_bien'],
             'Lote Correcto FH': kardexItem['Lote'], // Forzado desde el reporte Kardex (Existencias)
-            'Fecha Caducidad (Date)': formatExcelDate(kardexItem['Fecha Caducidad']),
+            'Fecha Caducidad (Date)': toDate(kardexItem['Fecha Caducidad']),
             'Cantidad Salida (Decimal)': valSalida,
             'Kardex Bien (Integer)': kardexItem['id_kardex'],
             'Unidad Medida (Integer)': kardexItem['id_unidadmedida'],
@@ -292,7 +293,7 @@ const App = () => {
             'Folio Temp. (Integer)': currentFolio,
             'id_bien': row['Clave de Cuadro Básico'] || 0,
             'Lote Correcto FH': rawLote,
-            'Fecha Caducidad (Date)': formatExcelDate(row['Caducidad'] || row['Caducidad ']),
+            'Fecha Caducidad (Date)': toDate(row['Caducidad'] || row['Caducidad ']),
             'Cantidad Salida (Decimal)': valSalida,
             'Kardex Bien (Integer)': 0,
             'Unidad Medida (Integer)': 271, // Default from example
@@ -305,6 +306,21 @@ const App = () => {
       const wsEnc = XLSX.utils.json_to_sheet(newEncabezado);
       const wsDet = XLSX.utils.json_to_sheet(newDetalle);
       
+      // Set date format on date columns so Excel displays DD/MM/YYYY
+      const fixDateFormat = (ws, colName) => {
+        const range = XLSX.utils.decode_range(ws['!ref']);
+        for (let C = range.s.c; C <= range.e.c; ++C) {
+          const hAddr = XLSX.utils.encode_cell({ r: range.s.r, c: C });
+          if (ws[hAddr] && ws[hAddr].v === colName) {
+            for (let R = range.s.r + 1; R <= range.e.r; ++R) {
+              const addr = XLSX.utils.encode_cell({ r: R, c: C });
+              if (ws[addr]) ws[addr].z = 'dd/mm/yyyy';
+            }
+            break;
+          }
+        }
+      };
+
       // Fix scientific notation for Folio columns by setting cell type to number and format
       const fixFolioFormat = (ws, colName) => {
         const range = XLSX.utils.decode_range(ws['!ref']);
@@ -329,6 +345,8 @@ const App = () => {
 
       fixFolioFormat(wsEnc, 'Folio Temp (Integer)');
       fixFolioFormat(wsDet, 'Folio Temp. (Integer)');
+      fixDateFormat(wsEnc, 'Fecha Movimiento (Date)');
+      fixDateFormat(wsDet, 'Fecha Caducidad (Date)');
       
       XLSX.utils.book_append_sheet(wb, wsEnc, 'Encabezado');
       XLSX.utils.book_append_sheet(wb, wsDet, 'Detalle');
