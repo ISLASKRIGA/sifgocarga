@@ -84,7 +84,9 @@ const App = () => {
       const createLookup = (data) => {
         const map = new Map();
         data.forEach(item => {
-          let clave = String(item['Clave Bien'] || '').trim();
+          const itemKeys = Object.keys(item);
+          const claveKey = itemKeys.find(k => k.toLowerCase().replace(/\s+/g, '') === 'clavebien' || k.toLowerCase() === 'clave') || 'Clave Bien';
+          let clave = String(item[claveKey] || '').trim();
           clave = clave.replace(/^0+/, ''); // safely remove leading zeros
 
           if (!map.has(clave)) {
@@ -280,15 +282,20 @@ const App = () => {
         }
 
         if (kardexItem) {
+          const kKeys = Object.keys(kardexItem);
+          const kIdBien = kKeys.find(k => k.toLowerCase().replace(/\s|_/g, '') === 'idbien') || 'id_bien';
+          const kIdKardex = kKeys.find(k => k.toLowerCase().replace(/\s|_/g, '') === 'idkardex' || k.toLowerCase() === 'kardex') || 'id_kardex';
+          const kUm = kKeys.find(k => k.toLowerCase().replace(/\s|_/g, '').includes('unidadmedida')) || 'id_unidadmedida';
+
           newDetalle.push({
             'Año (Integer)': dateObj.getFullYear() || new Date().getFullYear(),
             'Folio Temp. (Integer)': currentFolio,
-            'id_bien': kardexItem['id_bien'],
+            'id_bien': kardexItem[kIdBien] || 0,
             'Lote Correcto FH': kardexItem['Lote'], // Forzado desde el reporte Kardex (Existencias)
             'Fecha Caducidad (Date)': formatExcelDate(kardexItem['Fecha Caducidad']),
             'Cantidad Salida (Decimal)': valSalida,
-            'Kardex Bien (Integer)': kardexItem['id_kardex'],
-            'Unidad Medida (Integer)': kardexItem['id_unidadmedida'],
+            'Kardex Bien (Integer)': kardexItem[kIdKardex] || 0,
+            'Unidad Medida (Integer)': kardexItem[kUm] || 271,
           });
         } else {
           // If not found in kardex, we still include but some fields might be missing
