@@ -227,7 +227,7 @@ const App = () => {
         if (rawVale) {
           // Extraer porción numérica pero mantener como string para evitar notación científica prematura
           const valeStr = String(rawVale).replace(/\D/g, ''); 
-          currentFolio = valeStr || `${tipoMovId}${subAlmacenId}${almacenId}`;
+          currentFolio = valeStr ? `${valeStr}${almacenId}` : `${tipoMovId}${subAlmacenId}${almacenId}`;
         } else {
           currentFolio = `${tipoMovId}${subAlmacenId}${almacenId}`;
         }
