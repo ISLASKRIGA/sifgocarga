@@ -242,7 +242,7 @@ const App = () => {
           
           newEncabezado.push({
             'Folio Temp (Integer)': currentFolio.length > 10 ? currentFolio : parseInt(currentFolio, 10),
-            'Año (Integer)': dateObj.getFullYear() || new Date().getFullYear(),
+            'Año (Integer)': 2026,
             'Tipo Movimiento (Integer)': tipoMovId,
             'Almacén Salida (Integer)': almacenId,
             'Destino (Integer)': 8, // Predefined as 8 based on example
@@ -292,7 +292,7 @@ const App = () => {
 
         if (kardexItem) {
           newDetalle.push({
-            'Año (Integer)': dateObj.getFullYear() || new Date().getFullYear(),
+            'Año (Integer)': 2026,
             'Folio Temp. (Integer)': currentFolio,
             'id_bien': kardexItem['id_bien'],
             'Lote Correcto FH': kardexItem['Lote'], // Forzado desde el reporte Kardex (Existencias)
@@ -306,7 +306,7 @@ const App = () => {
           // Optimization: could search only by Clave as fallback if Lote doesn't match
           console.warn(`No se encontró kardex para clave ${rawClave} lote ${rawLote}`);
           newDetalle.push({
-            'Año (Integer)': dateObj.getFullYear() || new Date().getFullYear(),
+            'Año (Integer)': 2026,
             'Folio Temp. (Integer)': currentFolio,
             'id_bien': row['Clave de Cuadro Básico'] || 0,
             'Lote Correcto FH': rawLote,
