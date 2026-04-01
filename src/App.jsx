@@ -226,7 +226,9 @@ const App = () => {
         let currentFolio;
         if (rawVale) {
           // Extraer porción numérica pero mantener como string para evitar notación científica prematura
-          const valeStr = String(rawVale).replace(/\D/g, ''); 
+          let valeStr = String(rawVale).replace(/\D/g, ''); 
+          // Quitar el año (2025 o 2026) del inicio para que el número no desborde el límite en SIFGO
+          valeStr = valeStr.replace(/^(2025|2026)/, '');
           currentFolio = valeStr ? `${valeStr}${almacenId}` : `${tipoMovId}${subAlmacenId}${almacenId}`;
         } else {
           currentFolio = `${tipoMovId}${subAlmacenId}${almacenId}`;
