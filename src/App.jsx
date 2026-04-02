@@ -193,6 +193,11 @@ const App = () => {
           dateObj = new Date(); // Fallback to current date
         }
         
+        // Si la fecha es de diciembre de 2025, cambiar al 1 de enero de 2026
+        if (dateObj.getFullYear() === 2025 && dateObj.getMonth() === 11) {
+          dateObj = new Date(2026, 0, 1);
+        }
+
         // Quitar la parte de tiempo (hours) a 0 para el match
         dateObj.setHours(0, 0, 0, 0);
         const fechaStr = dateObj.toISOString().split('T')[0];
