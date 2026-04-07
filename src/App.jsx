@@ -160,7 +160,28 @@ const App = () => {
       const newDetalle = [];
       const folioMap = new Map(); // Key: Tipo_Almacen_Fecha, Value: FolioTemp
 
-      filteredSalidas.forEach((row, index) => {
+      // Pre-scan: detectar qué folios base aparecen en más de un almacén
+      const folioAlmacenSet = new Map(); // basefolio -> Set of almacenIds
+      filteredSalidas.forEach((row) => {
+        let rawClave = String(row['Clave'] || row['Clave INPer'] || '').trim().replace(/^0+/, '');
+        if (!rawClave.startsWith('1')) return;
+        const rawAlmacen = String(row['Almacen'] || '').trim();
+        let almacenId = rawAlmacen.toLowerCase().includes('gratui') ? 4 : 5;
+        const primaryKardex = almacenId === 4 ? lookupFG : lookupFH;
+        if (!primaryKardex.has(rawClave) || primaryKardex.get(rawClave).length === 0) {
+          const secondaryKardex = almacenId === 4 ? lookupFH : lookupFG;
+          if (secondaryKardex.has(rawClave) && secondaryKardex.get(rawClave).length > 0) {
+            almacenId = almacenId === 4 ? 5 : 4;
+          }
+        }
+        const rawVale = row['Vale INPer'] || row['Vale Inper'] || row['Vale'] || row['Folio Vale'] || row['Folio Vale INPer'];
+        let valeStr = rawVale ? String(rawVale).replace(/\D/g, '').replace(/^(2025|2026)/, '') : '';
+        const baseFolio = valeStr || `fallback_${String(row['Tipo de Salida'] || '')}`;
+        if (!folioAlmacenSet.has(baseFolio)) folioAlmacenSet.set(baseFolio, new Set());
+        folioAlmacenSet.get(baseFolio).add(almacenId);
+      });
+
+      filteredSalidas.forEach((row) => {
         let rawClave = String(row['Clave'] || row['Clave INPer'] || '').trim();
         rawClave = rawClave.replace(/^0+/, ''); // safely remove leading zeros
         
@@ -231,10 +252,16 @@ const App = () => {
         let currentFolio;
         if (rawVale) {
           // Extraer porción numérica pero mantener como string para evitar notación científica prematura
-          let valeStr = String(rawVale).replace(/\D/g, ''); 
+          let valeStr = String(rawVale).replace(/\D/g, '');
           // Quitar el año (2025 o 2026) del inicio para que el número no desborde el límite en SIFGO
           valeStr = valeStr.replace(/^(2025|2026)/, '');
-          currentFolio = valeStr ? `${valeStr}` : `${tipoMovId}${subAlmacenId}`;
+          if (valeStr) {
+            // Agregar almacenId al folio solo si ese vale aparece en más de un almacén
+            const multiAlmacen = (folioAlmacenSet.get(valeStr)?.size || 0) > 1;
+            currentFolio = multiAlmacen ? `${valeStr}${almacenId}` : `${valeStr}`;
+          } else {
+            currentFolio = `${tipoMovId}${subAlmacenId}`;
+          }
         } else {
           currentFolio = `${tipoMovId}${subAlmacenId}`;
         }
