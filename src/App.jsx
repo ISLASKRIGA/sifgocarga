@@ -359,8 +359,18 @@ const App = () => {
             if (R === 0 && cell && cell.v.includes(colName)) {
               for (let i = R + 1; i <= range.e.r; ++i) {
                 const targetAddr = XLSX.utils.encode_cell({ r: i, c: C });
-                if (ws[targetAddr]) {
-                  ws[targetAddr].z = 'dd/mm/yyyy'; // DMA format
+                const tc = ws[targetAddr];
+                if (tc && tc.t === 's') {
+                  // Convertir string "DD/MM/YYYY" a serial de Excel (número) con formato fecha
+                  const parts = tc.v.split('/');
+                  if (parts.length === 3) {
+                    const dateObj = new Date(parseInt(parts[2]), parseInt(parts[1]) - 1, parseInt(parts[0]));
+                    const excelSerial = Math.round((dateObj.getTime() / 86400000) + 25569);
+                    tc.t = 'n';
+                    tc.v = excelSerial;
+                    tc.z = 'dd/mm/yyyy';
+                    delete tc.w; // Forzar recálculo del texto de la celda
+                  }
                 }
               }
               break;
