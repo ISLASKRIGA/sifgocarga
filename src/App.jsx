@@ -236,7 +236,7 @@ const App = () => {
           valeStr = valeStr.replace(/^(2025|2026)/, '');
           currentFolio = valeStr ? `${valeStr}` : `${tipoMovId}${subAlmacenId}`;
         } else {
-          currentFolio = `${tipoMovId}${subAlmacenId}${almacenId}`;
+          currentFolio = `${tipoMovId}${subAlmacenId}`;
         }
 
         // Grouping key for Encabezado
