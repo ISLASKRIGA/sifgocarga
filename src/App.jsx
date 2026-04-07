@@ -234,7 +234,7 @@ const App = () => {
           let valeStr = String(rawVale).replace(/\D/g, ''); 
           // Quitar el año (2025 o 2026) del inicio para que el número no desborde el límite en SIFGO
           valeStr = valeStr.replace(/^(2025|2026)/, '');
-          currentFolio = valeStr ? `${valeStr}${almacenId}` : `${tipoMovId}${subAlmacenId}${almacenId}`;
+          currentFolio = valeStr ? `${valeStr}` : `${tipoMovId}${subAlmacenId}`;
         } else {
           currentFolio = `${tipoMovId}${subAlmacenId}${almacenId}`;
         }
@@ -329,6 +329,7 @@ const App = () => {
       const wsDet = XLSX.utils.json_to_sheet(newDetalle);
       
       // Fix scientific notation for Folio columns by setting cell type to number and format
+      // Fix scientific notation for Folio columns by setting cell type to number and format
       const fixFolioFormat = (ws, colName) => {
         const range = XLSX.utils.decode_range(ws['!ref']);
         for (let R = range.s.r; R <= range.e.r; ++R) {
@@ -336,7 +337,6 @@ const App = () => {
             const cellAddress = XLSX.utils.encode_cell({ r: R, c: C });
             const cell = ws[cellAddress];
             if (R === 0 && cell && cell.v === colName) {
-              // Header match, now process column
               for (let i = R + 1; i <= range.e.r; ++i) {
                 const targetAddr = XLSX.utils.encode_cell({ r: i, c: C });
                 if (ws[targetAddr]) {
@@ -350,8 +350,29 @@ const App = () => {
         }
       };
 
+      const fixDateFormat = (ws, colName) => {
+        const range = XLSX.utils.decode_range(ws['!ref']);
+        for (let R = range.s.r; R <= range.e.r; ++R) {
+          for (let C = range.s.c; C <= range.e.c; ++C) {
+            const cellAddress = XLSX.utils.encode_cell({ r: R, c: C });
+            const cell = ws[cellAddress];
+            if (R === 0 && cell && cell.v.includes(colName)) {
+              for (let i = R + 1; i <= range.e.r; ++i) {
+                const targetAddr = XLSX.utils.encode_cell({ r: i, c: C });
+                if (ws[targetAddr]) {
+                  ws[targetAddr].z = 'dd/mm/yyyy'; // DMA format
+                }
+              }
+              break;
+            }
+          }
+        }
+      };
+
       fixFolioFormat(wsEnc, 'Folio Temp (Integer)');
       fixFolioFormat(wsDet, 'Folio Temp. (Integer)');
+      fixDateFormat(wsEnc, 'Fecha Movimiento');
+      fixDateFormat(wsDet, 'Fecha Caducidad');
       
       XLSX.utils.book_append_sheet(wb, wsEnc, 'Encabezado');
       XLSX.utils.book_append_sheet(wb, wsDet, 'Detalle');
