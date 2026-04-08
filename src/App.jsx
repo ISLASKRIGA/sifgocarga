@@ -160,20 +160,40 @@ const App = () => {
       const newDetalle = [];
       const folioMap = new Map(); // Key: Tipo_Almacen_Fecha, Value: FolioTemp
 
+      // Helper: check if any kardex item matches the given lote
+      const hasLoteMatch = (items, rawLote) => {
+        if (!rawLote || items.length === 0) return items.length > 0;
+        const cleanRawLote = rawLote.replace(/[^A-Z0-9]/g, '').replace(/^(L|LOTE|LOT)/, '');
+        return items.some(item => {
+          const il = String(item['Lote'] || '').trim().toUpperCase().replace(/\s+/g, '');
+          const cleanIl = il.replace(/[^A-Z0-9]/g, '').replace(/^(L|LOTE|LOT)/, '');
+          return il === rawLote || il.includes(rawLote) || rawLote.includes(il) || cleanIl === cleanRawLote || cleanIl.includes(cleanRawLote) || cleanRawLote.includes(cleanIl);
+        });
+      };
+
+      // Resolve the correct almacenId for a row considering lote-level cross-almacén
+      const resolveAlmacen = (rawClave, rawAlmacen, rawLote) => {
+        let almacenId = rawAlmacen.toLowerCase().includes('gratui') ? 4 : 5;
+        const primaryKardex = almacenId === 4 ? lookupFG : lookupFH;
+        const primaryItems = primaryKardex.get(rawClave) || [];
+        if (primaryItems.length === 0 || !hasLoteMatch(primaryItems, rawLote)) {
+          const secondaryKardex = almacenId === 4 ? lookupFH : lookupFG;
+          const secondaryItems = secondaryKardex.get(rawClave) || [];
+          if (hasLoteMatch(secondaryItems, rawLote)) {
+            almacenId = almacenId === 4 ? 5 : 4;
+          }
+        }
+        return almacenId;
+      };
+
       // Pre-scan: detectar qué folios base aparecen en más de un almacén
       const folioAlmacenSet = new Map(); // basefolio -> Set of almacenIds
       filteredSalidas.forEach((row) => {
         let rawClave = String(row['Clave'] || row['Clave INPer'] || '').trim().replace(/^0+/, '');
         if (!rawClave.startsWith('1')) return;
         const rawAlmacen = String(row['Almacen'] || '').trim();
-        let almacenId = rawAlmacen.toLowerCase().includes('gratui') ? 4 : 5;
-        const primaryKardex = almacenId === 4 ? lookupFG : lookupFH;
-        if (!primaryKardex.has(rawClave) || primaryKardex.get(rawClave).length === 0) {
-          const secondaryKardex = almacenId === 4 ? lookupFH : lookupFG;
-          if (secondaryKardex.has(rawClave) && secondaryKardex.get(rawClave).length > 0) {
-            almacenId = almacenId === 4 ? 5 : 4;
-          }
-        }
+        const rawLote = String(row['Lote a sacar'] || '').trim().toUpperCase().replace(/\s+/g, '');
+        const almacenId = resolveAlmacen(rawClave, rawAlmacen, rawLote);
         const rawVale = row['Vale INPer'] || row['Vale Inper'] || row['Vale'] || row['Folio Vale'] || row['Folio Vale INPer'];
         let valeStr = rawVale ? String(rawVale).replace(/\D/g, '').replace(/^(2025|2026)/, '') : '';
         const baseFolio = valeStr || `fallback_${String(row['Tipo de Salida'] || '')}`;
@@ -223,19 +243,8 @@ const App = () => {
         dateObj.setHours(0, 0, 0, 0);
         const fechaStr = dateObj.toISOString().split('T')[0];
         
-        let almacenId = 5; // Default to FH
-        if (rawAlmacen.toLowerCase().includes('gratui')) {
-          almacenId = 4; // Farmacia Gratuita o Gratuidad
-        }
-        
-        // Cruzar con el otro almacén si no existe en el actual
-        const primaryKardex = almacenId === 4 ? lookupFG : lookupFH;
-        if (!primaryKardex.has(rawClave) || primaryKardex.get(rawClave).length === 0) {
-          const secondaryKardex = almacenId === 4 ? lookupFH : lookupFG;
-          if (secondaryKardex.has(rawClave) && secondaryKardex.get(rawClave).length > 0) {
-            almacenId = almacenId === 4 ? 5 : 4; // Swap a donde sí hay existencias
-          }
-        }
+        // Determinar almacén correcto: si el lote sólo existe en el otro almacén, usar ese
+        const almacenId = resolveAlmacen(rawClave, rawAlmacen, rawLote);
         
         // Find movement type ID
         const mvType = MOVEMENT_TYPES.find(t => 
@@ -279,6 +288,7 @@ const App = () => {
             'Almacén Salida (Integer)': almacenId,
             'Destino (Integer)': 8, // Predefined as 8 based on example
             'Fecha Movimiento (Date)': formatExcelDate(dateObj),
+            'Documento soporte': currentFolio.length > 10 ? currentFolio : parseInt(currentFolio, 10),
             'Usuario Elabora (Integer Usuario Activo)': 316,
             'Empleado (Integer)': 996,
             'Sub Almacén (Integer)': subAlmacenId,
@@ -407,6 +417,7 @@ const App = () => {
       };
 
       fixFolioFormat(wsEnc, 'Folio Temp (Integer)');
+      fixFolioFormat(wsEnc, 'Documento soporte');
       fixFolioFormat(wsDet, 'Folio Temp. (Integer)');
       fixDateFormat(wsEnc, 'Fecha Movimiento');
       fixDateFormat(wsDet, 'Fecha Caducidad');
