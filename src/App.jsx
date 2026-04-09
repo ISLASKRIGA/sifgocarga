@@ -201,6 +201,8 @@ const App = () => {
         folioAlmacenSet.get(baseFolio).add(almacenId);
       });
 
+      let nextFolioTemp = 1;
+
       filteredSalidas.forEach((row) => {
         let rawClave = String(row['Clave'] || row['Clave INPer'] || '').trim();
         rawClave = rawClave.replace(/^0+/, ''); // safely remove leading zeros
@@ -258,7 +260,7 @@ const App = () => {
 
         // Folio generation: Tomar Valor Vale INPer
         const rawVale = row['Vale INPer'] || row['Vale Inper'] || row['Vale'] || row['Folio Vale'] || row['Folio Vale INPer'];
-        let currentFolio;
+        let baseFolioStr;
         if (rawVale) {
           // Extraer porción numérica pero mantener como string para evitar notación científica prematura
           let valeStr = String(rawVale).replace(/\D/g, '');
@@ -267,24 +269,26 @@ const App = () => {
           if (valeStr) {
             // Agregar almacenId al folio solo si ese vale aparece en más de un almacén
             const multiAlmacen = (folioAlmacenSet.get(valeStr)?.size || 0) > 1;
-            currentFolio = multiAlmacen ? `${valeStr}${almacenId}` : `${valeStr}`;
+            baseFolioStr = multiAlmacen ? `${valeStr}${almacenId}` : `${valeStr}`;
           } else {
-            currentFolio = `${tipoMovId}${subAlmacenId}`;
+            baseFolioStr = `${tipoMovId}${subAlmacenId}`;
           }
         } else {
-          currentFolio = `${tipoMovId}${subAlmacenId}`;
+          baseFolioStr = `${tipoMovId}${subAlmacenId}`;
         }
 
         // Grouping key for Encabezado
-        const groupKey = `${currentFolio}_${fechaStr}_${almacenId}`;
+        const groupKey = `${baseFolioStr}_${fechaStr}_${almacenId}`;
         
+        let currentFolioConsecutivo;
         if (!folioMap.has(groupKey)) {
-          folioMap.set(groupKey, currentFolio);
+          currentFolioConsecutivo = nextFolioTemp++;
+          folioMap.set(groupKey, currentFolioConsecutivo);
           
           newEncabezado.push({
-            'Folio Temp (Integer)': currentFolio.length > 10 ? currentFolio : parseInt(currentFolio, 10),
+            'Folio Temp (Integer)': currentFolioConsecutivo,
             'Año (Integer)': 2026,
-            'Referencia (Char (30))': currentFolio.length > 10 ? currentFolio : parseInt(currentFolio, 10),
+            'Referencia (Char (30))': String(currentFolioConsecutivo),
             'Tipo Movimiento (Integer)': tipoMovId,
             'Almacén Salida (Integer)': almacenId,
             'Destino (Integer)': 8, // Predefined as 8 based on example
@@ -294,6 +298,8 @@ const App = () => {
             'Empleado (Integer)': 996,
             'Sub Almacén (Integer)': subAlmacenId,
           });
+        } else {
+          currentFolioConsecutivo = folioMap.get(groupKey);
         }
 
         // Kardex lookup
@@ -336,7 +342,7 @@ const App = () => {
         if (kardexItem) {
           newDetalle.push({
             'Año (Integer)': 2026,
-            'Folio Temp. (Integer)': currentFolio,
+            'Folio Temp. (Integer)': currentFolioConsecutivo,
             'Bien (Char(6))': kardexItem['id_bien'],
             'Lote (Char (30))': kardexItem['Lote'], // Forzado desde el reporte Kardex (Existencias)
             'Fecha Caducidad (Date)': formatExcelDate(kardexItem['Fecha Caducidad']),
@@ -351,7 +357,7 @@ const App = () => {
           console.warn(`No se encontró kardex para clave ${rawClave} lote ${rawLote}`);
           newDetalle.push({
             'Año (Integer)': 2026,
-            'Folio Temp. (Integer)': currentFolio,
+            'Folio Temp. (Integer)': currentFolioConsecutivo,
             'Bien (Char(6))': row['Clave de Cuadro Básico'] || rawClave || 0,
             'Lote (Char (30))': rawLote,
             'Fecha Caducidad (Date)': formatExcelDate(row['Caducidad'] || row['Caducidad ']),
