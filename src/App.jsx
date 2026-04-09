@@ -284,12 +284,13 @@ const App = () => {
           newEncabezado.push({
             'Folio Temp (Integer)': currentFolio.length > 10 ? currentFolio : parseInt(currentFolio, 10),
             'Año (Integer)': 2026,
+            'Referencia (Char (30))': currentFolio.length > 10 ? currentFolio : parseInt(currentFolio, 10),
             'Tipo Movimiento (Integer)': tipoMovId,
             'Almacén Salida (Integer)': almacenId,
             'Destino (Integer)': 8, // Predefined as 8 based on example
             'Fecha Movimiento (Date)': formatExcelDate(dateObj),
-            'Documento soporte': currentFolio.length > 10 ? currentFolio : parseInt(currentFolio, 10),
             'Usuario Elabora (Integer Usuario Activo)': 316,
+            'Usuario Autoriza (Integer)': 316,
             'Empleado (Integer)': 996,
             'Sub Almacén (Integer)': subAlmacenId,
           });
@@ -336,11 +337,12 @@ const App = () => {
           newDetalle.push({
             'Año (Integer)': 2026,
             'Folio Temp. (Integer)': currentFolio,
-            'id_bien': kardexItem['id_bien'],
-            'Lote Correcto FH': kardexItem['Lote'], // Forzado desde el reporte Kardex (Existencias)
+            'Bien (Char(6))': kardexItem['id_bien'],
+            'Lote (Char (30))': kardexItem['Lote'], // Forzado desde el reporte Kardex (Existencias)
             'Fecha Caducidad (Date)': formatExcelDate(kardexItem['Fecha Caducidad']),
             'Cantidad Salida (Decimal)': valSalida,
-            'Kardex Bien (Integer)': kardexItem['id_kardex'],
+            'Almacen Salida (integer)': almacenId,
+            'Kardex Bien(mes) (Integer)': dateObj.getMonth() + 1,
             'Unidad Medida (Integer)': kardexItem['id_unidadmedida'],
           });
         } else {
@@ -350,11 +352,12 @@ const App = () => {
           newDetalle.push({
             'Año (Integer)': 2026,
             'Folio Temp. (Integer)': currentFolio,
-            'id_bien': row['Clave de Cuadro Básico'] || 0,
-            'Lote Correcto FH': rawLote,
+            'Bien (Char(6))': row['Clave de Cuadro Básico'] || rawClave || 0,
+            'Lote (Char (30))': rawLote,
             'Fecha Caducidad (Date)': formatExcelDate(row['Caducidad'] || row['Caducidad ']),
             'Cantidad Salida (Decimal)': valSalida,
-            'Kardex Bien (Integer)': 0,
+            'Almacen Salida (integer)': almacenId,
+            'Kardex Bien(mes) (Integer)': dateObj.getMonth() + 1,
             'Unidad Medida (Integer)': 271, // Default from example
           });
         }
@@ -417,7 +420,7 @@ const App = () => {
       };
 
       fixFolioFormat(wsEnc, 'Folio Temp (Integer)');
-      fixFolioFormat(wsEnc, 'Documento soporte');
+      fixFolioFormat(wsEnc, 'Referencia (Char (30))');
       fixFolioFormat(wsDet, 'Folio Temp. (Integer)');
       fixDateFormat(wsEnc, 'Fecha Movimiento');
       fixDateFormat(wsDet, 'Fecha Caducidad');

@@ -1,0 +1,34 @@
+{
+  "Sheets": [
+    {
+      "name": "Encabezado",
+      "headers": [
+        "Folio Temp (Integer)",
+        "Año (Integer)",
+        "Referencia (Char (30))",
+        "Tipo Movimiento (Integer)",
+        "Almacén Salida (Integer)",
+        "Destino (Integer)",
+        "Fecha Movimiento (Date)",
+        "Usuario Elabora (Integer Usuario Activo)",
+        "Usuario Autoriza (Integer)",
+        "Empleado (Integer)",
+        "Sub Almacén (Integer)"
+      ]
+    },
+    {
+      "name": "Detalle",
+      "headers": [
+        "Año (Integer)",
+        "Folio Temp. (Integer)",
+        "Bien (Char(6))",
+        "Lote (Char (30))",
+        "Fecha Caducidad (Date)",
+        "Cantidad Salida (Decimal)",
+        "Almacen Salida (integer)",
+        "Kardex Bien(mes) (Integer)",
+        "Unidad Medida (Integer)"
+      ]
+    }
+  ]
+}

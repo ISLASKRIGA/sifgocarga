@@ -1,0 +1,22 @@
+{
+  "keys": [
+    "id_kardex",
+    "id_bien",
+    "Clave Bien",
+    "Existencia Inicial",
+    "Existencia Final",
+    "id_unidadmedida",
+    "Lote",
+    "Fecha Caducidad"
+  ],
+  "match": {
+    "id_kardex": 53629,
+    "id_bien": 2183,
+    "Clave Bien": "010375",
+    "Existencia Inicial": 10916,
+    "Existencia Final": 10916,
+    "id_unidadmedida": 445,
+    "Lote": "M51740",
+    "Fecha Caducidad": 46538
+  }
+}
