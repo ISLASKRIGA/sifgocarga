@@ -403,9 +403,40 @@ const App = () => {
             }
           }
         }
+        }
       };
 
-
+      const fixDateFormat = (ws, colName) => {
+        const range = XLSX.utils.decode_range(ws['!ref'] || 'A1');
+        if (!ws['!ref']) return;
+        for (let R = range.s.r; R <= range.e.r; ++R) {
+          for (let C = range.s.c; C <= range.e.c; ++C) {
+            const cellAddress = XLSX.utils.encode_cell({ r: R, c: C });
+            const cell = ws[cellAddress];
+            if (R === 0 && cell && cell.v && cell.v.includes(colName)) {
+              for (let i = R + 1; i <= range.e.r; ++i) {
+                const targetAddr = XLSX.utils.encode_cell({ r: i, c: C });
+                const tc = ws[targetAddr];
+                if (tc && tc.t === 's') {
+                  const parts = tc.v.split('/');
+                  if (parts.length === 3) {
+                    // guaranteed DD/MM/YYYY via formatExcelDate
+                    const dateObj = new Date(parseInt(parts[2], 10), parseInt(parts[1], 10) - 1, parseInt(parts[0], 10));
+                    if (!isNaN(dateObj.getTime())) {
+                        const excelSerial = Math.round((dateObj.getTime() / 86400000) + 25569);
+                        tc.t = 'n';
+                        tc.v = excelSerial;
+                        tc.z = 'dd/mm/yyyy'; // forces explicit layout
+                        if (tc.w) delete tc.w;
+                    }
+                  }
+                }
+              }
+              break;
+            }
+          }
+        }
+      };
 
       const MAX_CHUNK_SIZE = 2500;
       let chunks = [];
@@ -452,9 +483,11 @@ const App = () => {
         if (chunkEncabezado.length > 0) {
           fixFolioFormat(wsEnc, 'Folio Temp (Integer)');
           fixFolioFormat(wsEnc, 'Referencia (Char (30))');
+          fixDateFormat(wsEnc, 'Fecha Movimiento (Date)');
         }
         if (chunkDetalle.length > 0) {
           fixFolioFormat(wsDet, 'Folio Temp. (Integer)');
+          fixDateFormat(wsDet, 'Fecha Caducidad (Date)');
         }
 
         XLSX.utils.book_append_sheet(wb, wsEnc, 'Encabezado');
