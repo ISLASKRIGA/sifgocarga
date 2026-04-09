@@ -394,13 +394,36 @@ const App = () => {
 
 
       const MAX_CHUNK_SIZE = 2500;
-      const totalChunks = Math.ceil(newEncabezado.length / MAX_CHUNK_SIZE) || 1;
+      let chunks = [];
+      let currentEncChunk = [];
+      let currentDetCount = 0;
+      
+      // Optimization: pre-calculate details per folio to avoid nested finding
+      const detCountByFolio = new Map();
+      newDetalle.forEach(d => {
+        const f = d['Folio Temp. (Integer)'];
+        detCountByFolio.set(f, (detCountByFolio.get(f) || 0) + 1);
+      });
 
-      for (let i = 0; i < totalChunks; i++) {
-        const startIdx = i * MAX_CHUNK_SIZE;
-        const endIdx = startIdx + MAX_CHUNK_SIZE;
-        const chunkEncabezado = newEncabezado.slice(startIdx, endIdx);
+      for (const enc of newEncabezado) {
+        const folio = enc['Folio Temp (Integer)'];
+        const detailsCount = detCountByFolio.get(folio) || 0;
         
+        if (currentEncChunk.length > 0 && (currentDetCount + detailsCount > MAX_CHUNK_SIZE)) {
+            chunks.push(currentEncChunk);
+            currentEncChunk = [];
+            currentDetCount = 0;
+        }
+        
+        currentEncChunk.push(enc);
+        currentDetCount += detailsCount;
+      }
+      if (currentEncChunk.length > 0) {
+          chunks.push(currentEncChunk);
+      }
+
+      for (let i = 0; i < chunks.length; i++) {
+        const chunkEncabezado = chunks[i];
         const foliosInChunk = new Set(chunkEncabezado.map(e => e['Folio Temp (Integer)']));
         const chunkDetalle = newDetalle.filter(d => foliosInChunk.has(d['Folio Temp. (Integer)']));
 
@@ -419,11 +442,11 @@ const App = () => {
         XLSX.utils.book_append_sheet(wb, wsEnc, 'Encabezado');
         XLSX.utils.book_append_sheet(wb, wsDet, 'Detalle');
 
-        const fileName = totalChunks > 1 ? `SalidasSIFGO_Generado_Parte${i+1}.xlsx` : 'SalidasSIFGO_Generado.xlsx';
+        const fileName = chunks.length > 1 ? `SalidasSIFGO_Generado_Parte${i+1}.xlsx` : 'SalidasSIFGO_Generado.xlsx';
         XLSX.writeFile(wb, fileName);
       }
       
-      setStatus({ type: 'success', message: totalChunks > 1 ? `¡Layout dividido en ${totalChunks} archivos generado con éxito!` : '¡Layout generado con éxito! El archivo se ha descargado.' });
+      setStatus({ type: 'success', message: chunks.length > 1 ? `¡Layout dividido en ${chunks.length} archivos generado con éxito!` : '¡Layout generado con éxito! El archivo se ha descargado.' });
     } catch (error) {
       console.error(error);
       setStatus({ type: 'error', message: `Error al procesar: ${error.message}` });
