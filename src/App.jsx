@@ -140,12 +140,30 @@ const App = () => {
           // If it's a string, e.g. "2026-06-30 00:00:00", extract the date part
           const str = String(excelDate).trim();
           const datePart = str.includes(' ') ? str.split(' ')[0] : str;
+          
           if (datePart.includes('-')) {
              const parts = datePart.split('-');
              if (parts.length === 3 && parts[0].length === 4) { // YYYY-MM-DD
                  return `${parts[2]}/${parts[1]}/${parts[0]}`;
              }
+          } else if (datePart.includes('/')) {
+             const parts = datePart.split('/');
+             if (parts.length === 3) {
+                 let p0 = parseInt(parts[0], 10);
+                 let p1 = parseInt(parts[1], 10);
+                 let p2 = parts[2];
+                 if (p2.length === 2) p2 = '20' + p2; // handle YY
+                 
+                 // if format is obviously MM/DD/YYYY (e.g. 06/30/2026 -> p0=6, p1=30)
+                 if (p0 <= 12 && p1 > 12) {
+                     return `${String(p1).padStart(2, '0')}/${String(p0).padStart(2, '0')}/${p2}`;
+                 } else {
+                     // Assume it's already DD/MM/YYYY (or ambiguous, DD/MM/YYYY is preferred)
+                     return `${String(p0).padStart(2, '0')}/${String(p1).padStart(2, '0')}/${p2}`;
+                 }
+             }
           }
+          
           return datePart;
         }
 
