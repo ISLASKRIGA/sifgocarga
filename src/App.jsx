@@ -423,10 +423,9 @@ const App = () => {
                     // guaranteed DD/MM/YYYY via formatExcelDate
                     const dateObj = new Date(parseInt(parts[2], 10), parseInt(parts[1], 10) - 1, parseInt(parts[0], 10));
                     if (!isNaN(dateObj.getTime())) {
-                        const excelSerial = Math.round((dateObj.getTime() / 86400000) + 25569);
-                        tc.t = 'n';
-                        tc.v = excelSerial;
-                        tc.z = 'dd/mm/yyyy'; // forces explicit layout
+                        tc.t = 'd';
+                        tc.v = dateObj;
+                        tc.z = 14; // Default Short Date format (region-aware, native Excel Date)
                         if (tc.w) delete tc.w;
                     }
                   }
@@ -494,13 +493,13 @@ const App = () => {
         XLSX.utils.book_append_sheet(wb, wsDet, 'Detalle');
 
         const fileName = chunks.length > 1 ? `SalidasSIFGO_Generado_Parte${i+1}.xlsx` : 'SalidasSIFGO_Generado.xlsx';
-        XLSX.writeFile(wb, fileName);
+        XLSX.writeFile(wb, fileName, { cellDates: true });
       }
 
       if (noEncontrados.length > 0) {
         const wbNoFound = XLSX.utils.book_new();
         XLSX.utils.book_append_sheet(wbNoFound, XLSX.utils.json_to_sheet(noEncontrados), 'No Encontrados');
-        XLSX.writeFile(wbNoFound, 'Salidas_NoEncontradas.xlsx');
+        XLSX.writeFile(wbNoFound, 'Salidas_NoEncontradas.xlsx', { cellDates: true });
       }
       
       setStatus({ 
