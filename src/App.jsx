@@ -288,7 +288,7 @@ const App = () => {
           newEncabezado.push({
             'Folio Temp (Integer)': currentFolioConsecutivo,
             'Año (Integer)': 2026,
-            'Referencia (Char (30))': String(currentFolioConsecutivo),
+            'Referencia (Char (30))': baseFolioStr,
             'Tipo Movimiento (Integer)': tipoMovId,
             'Almacén Salida (Integer)': almacenId,
             'Destino (Integer)': 8, // Predefined as 8 based on example
