@@ -101,8 +101,8 @@ const App = () => {
       // 2. Read Concentrado
       const concBuffer = await files.concentrado.arrayBuffer();
       const concWorkbook = XLSX.read(concBuffer);
-      // Looking for "S Y E" or "Salida" sheet
-      const sySheetName = concWorkbook.SheetNames.find(n => n.toUpperCase().includes('S Y E') || n.toUpperCase().includes('SALIDA')) || concWorkbook.SheetNames[0];
+      // Analizar sólo la primera hoja del archivo Concentrado
+      const sySheetName = concWorkbook.SheetNames[0];
       const sySheet = concWorkbook.Sheets[sySheetName];
       // Determine header row dynamically
       // First try range 0 (header on row 1)
