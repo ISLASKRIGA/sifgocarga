@@ -176,6 +176,7 @@ const App = () => {
       // 3. Transformation Logic
       const newEncabezado = [];
       const newDetalle = [];
+      const noEncontrados = [];
       const folioMap = new Map(); // Key: Tipo_Almacen_Fecha, Value: FolioTemp
 
       // Helper: check if any kardex item matches the given lote
@@ -370,19 +371,14 @@ const App = () => {
             'Unidad Medida (Integer)': kardexItem['id_unidadmedida'],
           });
         } else {
-          // If not found in kardex, we still include but some fields might be missing
-          // Optimization: could search only by Clave as fallback if Lote doesn't match
+          // If not found in kardex, we skip adding them to layout according to user request
           console.warn(`No se encontró kardex para clave ${rawClave} lote ${rawLote}`);
-          newDetalle.push({
-            'Año (Integer)': 2026,
-            'Folio Temp. (Integer)': currentFolioConsecutivo,
-            'Bien (Char(6))': String(rawClave).padStart(6, '0'),
-            'Lote (Char (30))': rawLote,
-            'Fecha Caducidad (Date)': formatExcelDate(row['Caducidad'] || row['Caducidad ']),
-            'Cantidad Salida (Decimal)': valSalida,
-            'Almacen Salida (integer)': almacenId,
-            'Kardex Bien(mes) (Integer)': dateObj.getMonth() + 1,
-            'Unidad Medida (Integer)': 271, // Default from example
+          noEncontrados.push({
+            'Bien': String(rawClave).padStart(6, '0'),
+            'Lote reportado': rawLote,
+            'Almacén previsto': almacenId === 4 ? 'Farmacia Gratuita' : 'Farmacia Hospitalaria',
+            'Cantidad Salida': valSalida,
+            'Folio Concentrado': baseFolioStr || String(currentFolioConsecutivo)
           });
         }
       });
@@ -423,7 +419,11 @@ const App = () => {
         detCountByFolio.set(f, (detCountByFolio.get(f) || 0) + 1);
       });
 
-      for (const enc of newEncabezado) {
+      // Cleanup: only retain Encabezados that still have details
+      const validFolios = new Set(newDetalle.map(d => d['Folio Temp. (Integer)']));
+      const cleanEncabezado = newEncabezado.filter(e => validFolios.has(e['Folio Temp (Integer)']));
+
+      for (const enc of cleanEncabezado) {
         const folio = enc['Folio Temp (Integer)'];
         const detailsCount = detCountByFolio.get(folio) || 0;
         
@@ -463,8 +463,19 @@ const App = () => {
         const fileName = chunks.length > 1 ? `SalidasSIFGO_Generado_Parte${i+1}.xlsx` : 'SalidasSIFGO_Generado.xlsx';
         XLSX.writeFile(wb, fileName);
       }
+
+      if (noEncontrados.length > 0) {
+        const wbNoFound = XLSX.utils.book_new();
+        XLSX.utils.book_append_sheet(wbNoFound, XLSX.utils.json_to_sheet(noEncontrados), 'No Encontrados');
+        XLSX.writeFile(wbNoFound, 'Salidas_NoEncontradas.xlsx');
+      }
       
-      setStatus({ type: 'success', message: chunks.length > 1 ? `¡Layout dividido en ${chunks.length} archivos generado con éxito!` : '¡Layout generado con éxito! El archivo se ha descargado.' });
+      setStatus({ 
+        type: 'success', 
+        message: chunks.length > 1 
+          ? `¡Layout dividido en ${chunks.length} archivos generado!${noEncontrados.length > 0 ? ' (Revise archivo de no encontrados)' : ''}` 
+          : `¡Layout generado con éxito!${noEncontrados.length > 0 ? ' (Revise archivo de no encontrados)' : ''}` 
+      });
     } catch (error) {
       console.error(error);
       setStatus({ type: 'error', message: `Error al procesar: ${error.message}` });
