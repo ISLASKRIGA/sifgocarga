@@ -343,7 +343,7 @@ const App = () => {
           newDetalle.push({
             'Año (Integer)': 2026,
             'Folio Temp. (Integer)': currentFolioConsecutivo,
-            'Bien (Char(6))': rawClave,
+            'Bien (Char(6))': String(rawClave).padStart(6, '0'),
             'Lote (Char (30))': kardexItem['Lote'], // Forzado desde el reporte Kardex (Existencias)
             'Fecha Caducidad (Date)': formatExcelDate(kardexItem['Fecha Caducidad']),
             'Cantidad Salida (Decimal)': valSalida,
@@ -358,7 +358,7 @@ const App = () => {
           newDetalle.push({
             'Año (Integer)': 2026,
             'Folio Temp. (Integer)': currentFolioConsecutivo,
-            'Bien (Char(6))': rawClave,
+            'Bien (Char(6))': String(rawClave).padStart(6, '0'),
             'Lote (Char (30))': rawLote,
             'Fecha Caducidad (Date)': formatExcelDate(row['Caducidad'] || row['Caducidad ']),
             'Cantidad Salida (Decimal)': valSalida,
