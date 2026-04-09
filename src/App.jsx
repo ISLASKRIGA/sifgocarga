@@ -369,15 +369,10 @@ const App = () => {
         }
       });
 
-      // 4. Create Workbook
-      const wb = XLSX.utils.book_new();
-      const wsEnc = XLSX.utils.json_to_sheet(newEncabezado);
-      const wsDet = XLSX.utils.json_to_sheet(newDetalle);
-      
-      // Fix scientific notation for Folio columns by setting cell type to number and format
-      // Fix scientific notation for Folio columns by setting cell type to number and format
+      // 4. Create Workbooks in Chunks
       const fixFolioFormat = (ws, colName) => {
-        const range = XLSX.utils.decode_range(ws['!ref']);
+        const range = XLSX.utils.decode_range(ws['!ref'] || 'A1');
+        if (!ws['!ref']) return;
         for (let R = range.s.r; R <= range.e.r; ++R) {
           for (let C = range.s.c; C <= range.e.c; ++C) {
             const cellAddress = XLSX.utils.encode_cell({ r: R, c: C });
@@ -397,7 +392,8 @@ const App = () => {
       };
 
       const fixDateFormat = (ws, colName) => {
-        const range = XLSX.utils.decode_range(ws['!ref']);
+        const range = XLSX.utils.decode_range(ws['!ref'] || 'A1');
+        if (!ws['!ref']) return;
         for (let R = range.s.r; R <= range.e.r; ++R) {
           for (let C = range.s.c; C <= range.e.c; ++C) {
             const cellAddress = XLSX.utils.encode_cell({ r: R, c: C });
@@ -407,7 +403,6 @@ const App = () => {
                 const targetAddr = XLSX.utils.encode_cell({ r: i, c: C });
                 const tc = ws[targetAddr];
                 if (tc && tc.t === 's') {
-                  // Convertir string "DD/MM/YYYY" a serial de Excel (número) con formato fecha
                   const parts = tc.v.split('/');
                   if (parts.length === 3) {
                     const dateObj = new Date(parseInt(parts[2]), parseInt(parts[1]) - 1, parseInt(parts[0]));
@@ -415,7 +410,7 @@ const App = () => {
                     tc.t = 'n';
                     tc.v = excelSerial;
                     tc.z = 'dd/mm/yyyy';
-                    delete tc.w; // Forzar recálculo del texto de la celda
+                    delete tc.w; 
                   }
                 }
               }
@@ -425,19 +420,39 @@ const App = () => {
         }
       };
 
-      fixFolioFormat(wsEnc, 'Folio Temp (Integer)');
-      fixFolioFormat(wsEnc, 'Referencia (Char (30))');
-      fixFolioFormat(wsDet, 'Folio Temp. (Integer)');
-      fixDateFormat(wsEnc, 'Fecha Movimiento');
-      fixDateFormat(wsDet, 'Fecha Caducidad');
-      
-      XLSX.utils.book_append_sheet(wb, wsEnc, 'Encabezado');
-      XLSX.utils.book_append_sheet(wb, wsDet, 'Detalle');
+      const MAX_CHUNK_SIZE = 2500;
+      const totalChunks = Math.ceil(newEncabezado.length / MAX_CHUNK_SIZE) || 1;
 
-      // 5. Download
-      XLSX.writeFile(wb, 'SalidasSIFGO_Generado.xlsx');
+      for (let i = 0; i < totalChunks; i++) {
+        const startIdx = i * MAX_CHUNK_SIZE;
+        const endIdx = startIdx + MAX_CHUNK_SIZE;
+        const chunkEncabezado = newEncabezado.slice(startIdx, endIdx);
+        
+        const foliosInChunk = new Set(chunkEncabezado.map(e => e['Folio Temp (Integer)']));
+        const chunkDetalle = newDetalle.filter(d => foliosInChunk.has(d['Folio Temp. (Integer)']));
+
+        const wb = XLSX.utils.book_new();
+        const wsEnc = XLSX.utils.json_to_sheet(chunkEncabezado);
+        const wsDet = chunkDetalle.length > 0 ? XLSX.utils.json_to_sheet(chunkDetalle) : XLSX.utils.json_to_sheet([{}]);
+
+        if (chunkEncabezado.length > 0) {
+          fixFolioFormat(wsEnc, 'Folio Temp (Integer)');
+          fixFolioFormat(wsEnc, 'Referencia (Char (30))');
+          fixDateFormat(wsEnc, 'Fecha Movimiento');
+        }
+        if (chunkDetalle.length > 0) {
+          fixFolioFormat(wsDet, 'Folio Temp. (Integer)');
+          fixDateFormat(wsDet, 'Fecha Caducidad');
+        }
+
+        XLSX.utils.book_append_sheet(wb, wsEnc, 'Encabezado');
+        XLSX.utils.book_append_sheet(wb, wsDet, 'Detalle');
+
+        const fileName = totalChunks > 1 ? `SalidasSIFGO_Generado_Parte${i+1}.xlsx` : 'SalidasSIFGO_Generado.xlsx';
+        XLSX.writeFile(wb, fileName);
+      }
       
-      setStatus({ type: 'success', message: '¡Layout generado con éxito! El archivo se ha descargado.' });
+      setStatus({ type: 'success', message: totalChunks > 1 ? `¡Layout dividido en ${totalChunks} archivos generado con éxito!` : '¡Layout generado con éxito! El archivo se ha descargado.' });
     } catch (error) {
       console.error(error);
       setStatus({ type: 'error', message: `Error al procesar: ${error.message}` });
